@@ -126,17 +126,23 @@ int main(int argc,char* argv[])
    int p,n,m;
    FILE* inputfile=fopen(argv[4],"r");
    FILE* outputfile=fopen(argv[5],"w");
-   unsigned batch_id=atoi(argv[6]);
+   unsigned batch_id=0;
+   if (argc == 7) {
+      batch_id=atoi(argv[6]);
+   }
    double * f,*u;
    unsigned short *sf;
    f = calloc(M*N*P, sizeof(double)); 
    sf = calloc(M*N*P, sizeof(unsigned short)); 
    u = calloc(M*N*P, sizeof(double)); 
    fread(sf,sizeof(unsigned short),M*N*P,inputfile);
-        for(p = 0; p < P; p++)
-            for(n = 0; n < N; n++)
-                for(m = 0; m < M; m++)
-					f[CENTER]=(double)sf[CENTER];   
+   for(p = 0; p < P; p++) {
+      for(n = 0; n < N; n++) {
+         for(m = 0; m < M; m++) {
+            f[CENTER]=(double)sf[CENTER];   
+         }
+      }
+   }
    double sigma=0.05;
    double lamda=0.065;
    double Tol=2e-3;
