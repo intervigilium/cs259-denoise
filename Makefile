@@ -8,7 +8,7 @@ CC=gcc
 
 INCFLAGS= -I$(PAPIDIR)
 LDFLAGS= -L/mnt/jc5/CS259/papi/ -lm -lutil_papi -lpapi
-CFLAGS= -O3
+CFLAGS= -pg -g
 
 default: $(TARGET)
 
