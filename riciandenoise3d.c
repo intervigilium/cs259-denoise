@@ -134,7 +134,7 @@ void usage()
 
 int main(int argc, char *argv[])
 {
-    int M, N, P, m, n, p;
+    int M, N, P, m, n, p, c;
     FILE *inputfile, *outputfile;
     unsigned batch_id = 0;
     double *f, *u;
