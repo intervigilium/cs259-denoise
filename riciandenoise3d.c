@@ -19,6 +19,7 @@
 #include <string.h>
 #include <stdlib.h>
 #include <stdio.h>
+#include <unistd.h>
 #include "papi.h"
 
 /* Method Parameters */
@@ -126,25 +127,62 @@ static void riciandenoise3(double *u, const double *f,
 	return;
 }
 
+void usage()
+{
+    printf("riciandenoise3d [-m|n|p dimensions|-i input|-o output|-b batch id]\n");
+}
+
 int main(int argc, char *argv[])
 {
-	if (argc < 6) {
-		printf
-		    ("riciandnoise3 M N P inputfile outputfile <batch id>\r\n");
+    int M, N, P, m, n, p;
+    FILE *inputfile, *outputfile;
+    unsigned batch_id = 0;
+    double *f, *u;
+    unsigned short *sf;
+	double sigma = 0.05;
+	double lamda = 0.065;
+	double Tol = 2e-3;
+
+	if (argc < 11) {
+        usage();
 		exit(0);
 	}
-	int M = atoi(argv[1]);
-	int N = atoi(argv[2]);
-	int P = atoi(argv[3]);
-	int p, n, m;
-	FILE *inputfile = fopen(argv[4], "r");
-	FILE *outputfile = fopen(argv[5], "w");
-	unsigned batch_id = 0;
-	if (argc == 7) {
-		batch_id = atoi(argv[6]);
-	}
-	double *f, *u;
-	unsigned short *sf;
+
+    while ((c = getopt(argc, argv, "vhm:n:p:i:o:b:")) != -1) {
+        switch (c) {
+        case 'v':
+        case 'h':
+        case '?':
+        default:
+            usage();
+            exit(0);
+        case 'm':
+            M = atoi(optarg);
+            break;
+        case 'n':
+            N = atoi(optarg);
+            break;
+        case 'p':
+            P = atoi(optarg);
+            break;
+        case 'i':
+            inputfile = fopen(optarg, "r");
+            break;
+        case 'o':
+            outputfile = fopen(optarg, "w");
+            break;
+        case 'b':
+            sscanf(optarg, "%u", &batch_id);
+            break;
+        }
+    }
+
+    if (M < 1 || N < 1 || P < 1 || !inputfile || !outputfile) {
+        usage();
+        exit(0);
+    }
+
+
 	f = calloc(M * N * P, sizeof(double));
 	sf = calloc(M * N * P, sizeof(unsigned short));
 	u = calloc(M * N * P, sizeof(double));
@@ -156,9 +194,7 @@ int main(int argc, char *argv[])
 			}
 		}
 	}
-	double sigma = 0.05;
-	double lamda = 0.065;
-	double Tol = 2e-3;
+
 	int Events[5];
 	u_long_long papi_values[5];
 	util_start_papi(batch_id, Events);
