@@ -17,7 +17,6 @@
  *======================================================================*/
 #include <math.h>
 #include <string.h>
-#include <stdbool.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include "papi.h"
@@ -30,27 +29,7 @@
 /* Macro functions */
 #define SQR(x) ((x)*(x))
 
-/* Total variation minimization for rician denoising */
-static void riciandenoise3(double *u, const double *f,
-			   int M, int N, int P,
-			   double sigma, double lambda, double Tol)
-{
-	double *g;		/* Array storing 1/|grad u| approximation */
-	double sigma2, gamma, r, ulast;
-	bool Converged;
-	int m, n, p;
-	int Iter;
-
-	/* Initializations */
-	sigma2 = SQR(sigma);
-	gamma = lambda / sigma2;
-	Converged = false;
-	memcpy(u, f, sizeof(double) * M * N * P);	/* Initialize u = f */
-	g = calloc(M * N * P, sizeof(double));	/* Allocate temporary work array */
-
-    /*** Main gradient descent loop ***/
-	for (Iter = 1; Iter <= MAXITER; Iter++) {
-		/* Macros for referring to pixel neighbors */
+/* Macros for referring to pixel neighbors */
 #define CENTER   (m+M*(n+N*p))
 #define RIGHT    (m+M*(n+N*p)+M)
 #define LEFT     (m+M*(n+N*p)-M)
@@ -59,6 +38,26 @@ static void riciandenoise3(double *u, const double *f,
 #define ZOUT     (m+M*(n+N*p+N))
 #define ZIN      (m+M*(n+N*p-N))
 
+/* Total variation minimization for rician denoising */
+static void riciandenoise3(double *u, const double *f,
+			   int M, int N, int P,
+			   double sigma, double lambda, double Tol)
+{
+	double *g;		/* Array storing 1/|grad u| approximation */
+	double sigma2, gamma, r, ulast;
+	int converged;
+	int m, n, p;
+	int Iter;
+
+	/* Initializations */
+	sigma2 = SQR(sigma);
+	gamma = lambda / sigma2;
+	converged = 0;
+	memcpy(u, f, sizeof(double) * M * N * P);	/* Initialize u = f */
+	g = calloc(M * N * P, sizeof(double));	/* Allocate temporary work array */
+
+    /*** Main gradient descent loop ***/
+	for (Iter = 1; Iter <= MAXITER; Iter++) {
 		/* Approximate g = 1/|grad u| */
 		for (p = 1; p < P - 1; p++)
 			for (n = 1; n < N - 1; n++)
@@ -78,7 +77,7 @@ static void riciandenoise3(double *u, const double *f,
 								     u[ZIN]));
 
 		/* Update u by a sem-implict step */
-		Converged = true;
+		converged = 1;
 
 		for (p = 1; p < P - 1; p++)
 			for (n = 1; n < N - 1; n++)
@@ -109,15 +108,15 @@ static void riciandenoise3(double *u, const double *f,
 
 					/* Test for convergence */
 					if (fabs(ulast - u[CENTER]) > Tol)
-						Converged = false;
+						converged = 0;
 				}
 
-		if (Converged)
+		if (converged)
 			break;
 	}
 
 	/* Done, show exiting message */
-	if (Converged)
+	if (converged)
 		printf("Converged in %d iterations with tolerance %g.\n",
 		       Iter, Tol);
 	else
