@@ -12,7 +12,7 @@
  *
  * Parameter lambda >= 0 determines the strength of the denoising: smaller
  * lambda implies stronger denoising.  Tol specifies the stopping 
- * tolerance, the method stops when ||u^Iter - u^Iter-1||_inf < Tol.
+ * tolerance, the method stops when ||u^i - u^i-1||_inf < Tol.
  *
  *======================================================================*/
 #include <math.h>
@@ -23,9 +23,9 @@
 #include "papi.h"
 
 /* Method Parameters */
-#define DT          5.0
-#define EPSILON     1.0E-20
-#define MAXITER     500
+#define DT 5.0
+#define EPSILON 1.0E-20
+#define MAX_ITERATIONS 500
 
 /* Macro functions */
 #define SQR(x) ((x)*(x))
@@ -45,10 +45,9 @@ static void riciandenoise3(double *u, const double *f,
 			   double sigma, double lambda, double Tol)
 {
 	double *g;		/* Array storing 1/|grad u| approximation */
-	double sigma2, gamma, r, ulast;
+	double sigma2, gamma, r, ulast, numer, denom;
 	int converged;
-	int m, n, p;
-	int Iter;
+	int i, m, n, p;
 
 	/* Initializations */
 	sigma2 = SQR(sigma);
@@ -58,11 +57,11 @@ static void riciandenoise3(double *u, const double *f,
 	g = calloc(M * N * P, sizeof(double));	/* Allocate temporary work array */
 
     /*** Main gradient descent loop ***/
-	for (Iter = 1; Iter <= MAXITER; Iter++) {
+	for (i = 1; i <= MAX_ITERATIONS; i++) {
 		/* Approximate g = 1/|grad u| */
-		for (p = 1; p < P - 1; p++)
-			for (n = 1; n < N - 1; n++)
-				for (m = 1; m < M - 1; m++)
+		for (p = 1; p < P - 1; p++) {
+			for (n = 1; n < N - 1; n++) {
+				for (m = 1; m < M - 1; m++) {
 					g[CENTER] = 1.0 / sqrt(EPSILON
 							       + SQR(u[CENTER] -
 								     u[RIGHT])
@@ -76,112 +75,123 @@ static void riciandenoise3(double *u, const double *f,
 								     u[ZOUT])
 							       + SQR(u[CENTER] -
 								     u[ZIN]));
+				}
+			}
+		}
 
 		/* Update u by a sem-implict step */
 		converged = 1;
 
-		for (p = 1; p < P - 1; p++)
-			for (n = 1; n < N - 1; n++)
+		for (p = 1; p < P - 1; p++) {
+			for (n = 1; n < N - 1; n++) {
 				for (m = 1; m < M - 1; m++) {
 					/* Evaluate r = I1(u*f/sigma^2) / I0(u*f/sigma^2) with
-					   a cubic rational approximation. */
+					 * a cubic rational approximation. */
 					r = u[CENTER] * f[CENTER] / sigma2;
-					r = (r * (2.38944 + r * (0.950037 + r)))
-					    / (4.65314 +
-					       r * (2.57541 +
-						    r * (1.48937 + r)));
+					numer =
+					    r * 2.38944 + r * (0.950037 + r);
+					denom =
+					    4.65314 + r * (2.57541 +
+							   r * (1.48937 + r));
+					r = numer / denom;
+
 					/* Update u */
 					ulast = u[CENTER];
-					u[CENTER] =
-					    (u[CENTER] +
-					     DT * (u[RIGHT] * g[RIGHT]
-						   + u[LEFT] * g[LEFT] +
-						   u[DOWN] * g[DOWN] +
-						   u[UP] * g[UP]
-						   + u[ZOUT] * g[ZOUT] +
-						   u[ZIN] * g[ZIN]
-						   +
-						   gamma * f[CENTER] * r)) /
-					    (1.0 + DT * (g[RIGHT] + g[LEFT]
-							 + g[DOWN] + g[UP]
-							 + g[ZOUT] +
-							 g[ZIN] + gamma));
+					numer =
+					    u[CENTER] +
+					    DT * (u[RIGHT] * g[RIGHT] +
+						  u[LEFT] * g[LEFT] +
+						  u[DOWN] * g[DOWN] +
+						  u[UP] * g[UP] +
+						  u[ZOUT] * g[ZOUT] +
+						  u[ZIN] * g[ZIN] +
+						  gamma * f[CENTER] * r);
+					denom =
+					    1.0 + DT * (g[RIGHT] + g[LEFT] +
+							g[DOWN] + g[UP] +
+							g[ZOUT] + g[ZIN] +
+							gamma);
+					u[CENTER] = numer / denom;
 
 					/* Test for convergence */
-					if (fabs(ulast - u[CENTER]) > Tol)
+					if (fabs(ulast - u[CENTER]) > Tol) {
 						converged = 0;
+					}
 				}
+			}
+		}
 
-		if (converged)
+		if (converged) {
 			break;
+		}
 	}
 
-	/* Done, show exiting message */
-	if (converged)
+	if (converged) {
 		printf("Converged in %d iterations with tolerance %g.\n",
-		       Iter, Tol);
-	else
-		printf("Maximum iterations exceeded (MaxIter=%d).\n", MAXITER);
+		       i, Tol);
+	} else {
+		printf("Maximum iteraations exceeded (Max=%d).\n",
+		       MAX_ITERATIONS);
+	}
 
-	free(g);		/* Free temporary array */
-	return;
+	free(g);
 }
 
 void usage()
 {
-    printf("riciandenoise3d [-m|n|p dimensions|-i input|-o output|-b batch id]\n");
+	printf
+	    ("riciandenoise3d [-m|n|p dimensions|-i input|-o output|-b batch id]\n");
 }
 
 int main(int argc, char *argv[])
 {
-    int M, N, P, m, n, p, c;
-    FILE *inputfile, *outputfile;
-    unsigned batch_id = 0;
-    double *f, *u;
-    unsigned short *sf;
+	int M, N, P, m, n, p, c;
+	FILE *inputfile, *outputfile;
+	unsigned batch_id = 0;
+	double *f, *u;
+	unsigned short *sf;
 	double sigma = 0.05;
 	double lamda = 0.065;
 	double Tol = 2e-3;
 
 	if (argc < 11) {
-        usage();
+		usage();
 		exit(0);
 	}
 
-    while ((c = getopt(argc, argv, "vhm:n:p:i:o:b:")) != -1) {
-        switch (c) {
-        case 'v':
-        case 'h':
-        case '?':
-        default:
-            usage();
-            exit(0);
-        case 'm':
-            M = atoi(optarg);
-            break;
-        case 'n':
-            N = atoi(optarg);
-            break;
-        case 'p':
-            P = atoi(optarg);
-            break;
-        case 'i':
-            inputfile = fopen(optarg, "r");
-            break;
-        case 'o':
-            outputfile = fopen(optarg, "w");
-            break;
-        case 'b':
-            sscanf(optarg, "%u", &batch_id);
-            break;
-        }
-    }
+	while ((c = getopt(argc, argv, "vhm:n:p:i:o:b:")) != -1) {
+		switch (c) {
+		case 'v':
+		case 'h':
+		case '?':
+		default:
+			usage();
+			exit(0);
+		case 'm':
+			M = atoi(optarg);
+			break;
+		case 'n':
+			N = atoi(optarg);
+			break;
+		case 'p':
+			P = atoi(optarg);
+			break;
+		case 'i':
+			inputfile = fopen(optarg, "r");
+			break;
+		case 'o':
+			outputfile = fopen(optarg, "w");
+			break;
+		case 'b':
+			sscanf(optarg, "%u", &batch_id);
+			break;
+		}
+	}
 
-    if (M < 1 || N < 1 || P < 1 || !inputfile || !outputfile) {
-        usage();
-        exit(0);
-    }
-
+	if (M < 1 || N < 1 || P < 1 || !inputfile || !outputfile) {
+		usage();
+		exit(0);
+	}
 
 	f = calloc(M * N * P, sizeof(double));
 	sf = calloc(M * N * P, sizeof(unsigned short));
