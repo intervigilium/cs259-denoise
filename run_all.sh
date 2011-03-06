@@ -1,13 +1,13 @@
 #!/bin/bash
 CURDIR=`pwd`
 
-$CURDIR/riciandenoise3d 60 60 60 f.bin denoise.out 0
-$CURDIR/riciandenoise3d 60 60 60 f.bin denoise.out 1
-$CURDIR/riciandenoise3d 60 60 60 f.bin denoise.out 2
-$CURDIR/riciandenoise3d 60 60 60 f.bin denoise.out 3
-$CURDIR/riciandenoise3d 60 60 60 f.bin denoise.out 4
-$CURDIR/riciandenoise3d 60 60 60 f.bin denoise.out 5
-$CURDIR/riciandenoise3d 60 60 60 f.bin denoise.out 6
-$CURDIR/riciandenoise3d 60 60 60 f.bin denoise.out 7
-$CURDIR/riciandenoise3d 60 60 60 f.bin denoise.out 8
-$CURDIR/riciandenoise3d 60 60 60 f.bin denoise.out 9
+$CURDIR/riciandenoise3d -m 60 -n 60 -p 60 -i f.bin -o denoise.out -b 0
+$CURDIR/riciandenoise3d -m 60 -n 60 -p 60 -i f.bin -o denoise.out -b 1
+$CURDIR/riciandenoise3d -m 60 -n 60 -p 60 -i f.bin -o denoise.out -b 2
+$CURDIR/riciandenoise3d -m 60 -n 60 -p 60 -i f.bin -o denoise.out -b 3
+$CURDIR/riciandenoise3d -m 60 -n 60 -p 60 -i f.bin -o denoise.out -b 4
+$CURDIR/riciandenoise3d -m 60 -n 60 -p 60 -i f.bin -o denoise.out -b 5
+$CURDIR/riciandenoise3d -m 60 -n 60 -p 60 -i f.bin -o denoise.out -b 6
+$CURDIR/riciandenoise3d -m 60 -n 60 -p 60 -i f.bin -o denoise.out -b 7
+$CURDIR/riciandenoise3d -m 60 -n 60 -p 60 -i f.bin -o denoise.out -b 8
+$CURDIR/riciandenoise3d -m 60 -n 60 -p 60 -i f.bin -o denoise.out -b 9
