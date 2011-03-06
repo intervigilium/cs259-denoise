@@ -89,7 +89,7 @@ static void riciandenoise3(double *u, const double *f,
 					 * a cubic rational approximation. */
 					r = u[CENTER] * f[CENTER] / sigma2;
 					numer =
-					    r * 2.38944 + r * (0.950037 + r);
+					    r * (2.38944 + r * (0.950037 + r));
 					denom =
 					    4.65314 + r * (2.57541 +
 							   r * (1.48937 + r));
@@ -130,7 +130,7 @@ static void riciandenoise3(double *u, const double *f,
 		printf("Converged in %d iterations with tolerance %g.\n",
 		       i, Tol);
 	} else {
-		printf("Maximum iteraations exceeded (Max=%d).\n",
+		printf("Maximum iterations exceeded (Max: %d)\n",
 		       MAX_ITERATIONS);
 	}
 
