@@ -11,7 +11,24 @@
 #define N 60
 #define P 60
 
-void array_copy(double src[M][N][P], double dst[M][N][P])
+/* macros for array access */
+#define U_CENTER u[m][n][p]
+#define U_LEFT u[m][n-1][p]
+#define U_RIGHT u[m][n+1][p]
+#define U_UP u[m-1][n][p]
+#define U_DOWN u[m+1][n][p]
+#define U_IN u[m][n][p-1]
+#define U_OUT u[m][n][p+1]
+
+#define G_CENTER g[m][n][p]
+#define G_LEFT g[m][n-1][p]
+#define G_RIGHT g[m][n+1][p]
+#define G_UP g[m-1][n][p]
+#define G_DOWN g[m+1][n][p]
+#define G_IN g[m][n][p-1]
+#define G_OUT g[m][n][p+1]
+
+static void array_copy(double src[M][N][P], double dst[M][N][P])
 {
 	int i, j, k;
 	for (i = 0; i < M; i++) {
@@ -29,7 +46,10 @@ void riciandenoise3d(double u[M][N][P], const double f[M][N][P], double sigma,
 	/* Array storing 1/|grad u| approximation */
 	double g[M][N][P];
 
-	double sigma2, gamma, r, ulast, numer, denom;
+	double sigma2, gamma, r, numer, denom;
+	double u_last;
+	double u_stencil_up, g_stencil_up, u_stencil_center, g_stencil_center,
+	    u_stencil_down, g_stencil_down;
 	int converged;
 	int i, m, n, p;
 
@@ -46,20 +66,30 @@ void riciandenoise3d(double u[M][N][P], const double f[M][N][P], double sigma,
 		for (p = 1; p < P - 1; p++) {
 			for (n = 1; n < N - 1; n++) {
 				for (m = 1; m < M - 1; m++) {
-					/* stencil */
-					denom = sqrt(EPSILON
-						     + pow(u[m][n][p] -
-							   u[m + 1][n][p], 2)
-						     + pow(u[m][n][p] -
-							   u[m - 1][n][p], 2)
-						     + pow(u[m][n][p] -
-							   u[m][n - 1][p], 2)
-						     + pow(u[m][n][p] -
-							   u[m][n + 1][p], 2)
-						     + pow(u[m][n][p] -
-							   u[m][n][p - 1], 2)
-						     + pow(u[m][n][p] -
-							   u[m][n][p + 1], 2));
+					/* stencil m-1 = m; m = m+1 */
+					if (m == 1) {
+						u_stencil_up = U_UP;
+						u_stencil_center = U_CENTER;
+					} else {
+						u_stencil_up = u_stencil_center;
+						u_stencil_center =
+						    u_stencil_down;
+					}
+					u_stencil_down = U_DOWN;
+					denom =
+					    sqrt(EPSILON +
+						 pow(u_stencil_center - U_RIGHT,
+						     2) + pow(u_stencil_center -
+							      U_LEFT,
+							      2) +
+						 pow(u_stencil_center -
+						     u_stencil_down,
+						     2) + pow(u_stencil_center -
+							      u_stencil_up,
+							      2) +
+						 pow(u_stencil_center - U_OUT,
+						     2) + pow(u_stencil_center -
+							      U_IN, 2));
 					g[m][n][p] = 1.0 / denom;
 				}
 			}
@@ -71,9 +101,29 @@ void riciandenoise3d(double u[M][N][P], const double f[M][N][P], double sigma,
 		for (p = 1; p < P - 1; p++) {
 			for (n = 1; n < N - 1; n++) {
 				for (m = 1; m < M - 1; m++) {
+					/* stencil m-1 = m; m = m+1 */
+					if (m == 1) {
+						u_stencil_up = U_UP;
+						g_stencil_up = G_UP;
+						u_stencil_center = U_CENTER;
+						g_stencil_center = G_CENTER;
+					} else {
+						u_stencil_up = u_stencil_center;
+						g_stencil_up = g_stencil_center;
+						u_stencil_center =
+						    u_stencil_down;
+						g_stencil_center =
+						    g_stencil_down;
+					}
+					u_stencil_down = U_DOWN;
+					g_stencil_down = G_DOWN;
+
+					/* Update u */
+					u_last = u_stencil_center;
+
 					/* Evaluate r = I1(u*f/sigma^2) / I0(u*f/sigma^2) with
 					 * a cubic rational approximation. */
-					r = u[m][n][p] * f[m][n][p] / sigma2;
+					r = ulast * f[m][n][p] / sigma2;
 					numer =
 					    r * (2.38944 + r * (0.950037 + r));
 					denom =
@@ -81,40 +131,28 @@ void riciandenoise3d(double u[M][N][P], const double f[M][N][P], double sigma,
 							   r * (1.48937 + r));
 					r = numer / denom;
 
-					/* Update u */
-					ulast = u[m][n][p];
-					/* RIGHT = [m+1][n][p]
-					 * LEFT = [m-1][n][p]
-					 * UP = [m][n+1][p]
-					 * DOWN = [m][n-1][p]
-					 * IN = [m][n][p+1]
-					 * OUT = [m][n][p-1] */
 					numer =
-					    u[m][n][p] +
-					    DT * (u[m + 1][n][p] *
-						  g[m + 1][n][p] + u[m -
-								     1][n][p] *
-						  g[m - 1][n][p] + u[m][n -
-									1][p] *
-						  g[m][n - 1][p] + u[m][n +
-									1][p] *
-						  g[m][n + 1][p] + u[m][n][p -
-									   1] *
-						  g[m][n][p - 1] + u[m][n][p +
-									   1] *
-						  g[m][n][p + 1] +
-						  gamma * f[m][n][p] * r);
+					    u_last + DT * (U_RIGHT * G_RIGHT +
+							   U_LEFT * G_LEFT +
+							   u_stencil_up *
+							   g_stencil_up +
+							   u_stencil_down * 
+							   g_stencil_down +
+							   U_IN * G_IN +
+							   U_OUT * G_OUT +
+							   gamma * f[m][n][p] *
+							   r);
 					denom =
-					    1.0 + DT * (g[m + 1][n][p] +
-							g[m - 1][n][p] +
-							g[m][n - 1][p] +
-							g[m][n + 1][p] +
-							g[m][n][p - 1] +
-							g[m][n][p + 1] + gamma);
-					u[m][n][p] = numer / denom;
+					    1.0 + DT * (G_RIGHT + G_LEFT +
+							g_stencil_up +
+							g_stencil_down + G_IN +
+							G_OUT + gamma);
+					/* save modified u_stencil_center value */
+					u_stencil_center = numer / denom;
+					u[m][n][p] = u_stencil_center;
 
 					/* Test for convergence */
-					if (fabs(ulast - u[m][n][p]) >
+					if (fabs(u_last - u_stencil_center) >
 					    tolerance) {
 						converged = 0;
 					}
