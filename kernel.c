@@ -61,6 +61,7 @@ void riciandenoise3d(double u[M][N][P], const double f[M][N][P], double sigma,
 	array_copy(f, u);
 
     /*** Main gradient descent loop ***/
+    /* fully pipeline/parallelize this */
 	for (i = 1; i <= MAX_ITERATIONS; i++) {
 		/* Approximate g = 1/|grad u| */
 		for (p = 1; p < P - 1; p++) {
@@ -98,6 +99,8 @@ void riciandenoise3d(double u[M][N][P], const double f[M][N][P], double sigma,
 		/* Update u by a sem-implict step */
 		converged = 1;
 
+        /* possible to pipeline? data dependence 
+         * due to u[m][n][p] being written back to */
 		for (p = 1; p < P - 1; p++) {
 			for (n = 1; n < N - 1; n++) {
 				for (m = 1; m < M - 1; m++) {
