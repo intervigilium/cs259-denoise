@@ -15,6 +15,7 @@
  * tolerance, the method stops when ||u^i - u^i-1||_inf < Tol.
  *
  *======================================================================*/
+
 #include <math.h>
 #include <string.h>
 #include <stdlib.h>
