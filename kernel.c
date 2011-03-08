@@ -11,6 +11,8 @@
 #define N 60
 #define P 60
 
+#define SQR(x) ((x)*(x))
+
 /* macros for array access */
 #define U_CENTER u[m][n][p]
 #define U_LEFT u[m][n-1][p]
@@ -28,7 +30,7 @@
 #define G_IN g[m][n][p-1]
 #define G_OUT g[m][n][p+1]
 
-static void array_copy(double src[M][N][P], double dst[M][N][P])
+inline void array_copy(double src[M][N][P], double dst[M][N][P])
 {
 	int i, j, k;
 	for (i = 0; i < M; i++) {
@@ -45,11 +47,11 @@ void riciandenoise3d(double u[M][N][P], const double f[M][N][P], double sigma,
 {
 	/* Array storing 1/|grad u| approximation */
 	double g[M][N][P];
-
-	double sigma2, gamma, r, numer, denom;
+	double sigma2, gamma, r;
+	double numer, denom;
 	double u_last;
-	double u_stencil_up, g_stencil_up, u_stencil_center, g_stencil_center,
-	    u_stencil_down, g_stencil_down;
+	double u_stencil_up, u_stencil_center, u_stencil_down;
+	double g_stencil_up, g_stencil_center, g_stencil_down;
 	int converged;
 	int i, m, n, p;
 
@@ -61,7 +63,7 @@ void riciandenoise3d(double u[M][N][P], const double f[M][N][P], double sigma,
 	array_copy(f, u);
 
     /*** Main gradient descent loop ***/
-    /* fully pipeline/parallelize this */
+	/* fully pipeline/parallelize this */
 	for (i = 1; i <= MAX_ITERATIONS; i++) {
 		/* Approximate g = 1/|grad u| */
 		for (p = 1; p < P - 1; p++) {
@@ -79,18 +81,15 @@ void riciandenoise3d(double u[M][N][P], const double f[M][N][P], double sigma,
 					u_stencil_down = U_DOWN;
 					denom =
 					    sqrt(EPSILON +
-						 pow(u_stencil_center - U_RIGHT,
-						     2) + pow(u_stencil_center -
-							      U_LEFT,
-							      2) +
-						 pow(u_stencil_center -
-						     u_stencil_down,
-						     2) + pow(u_stencil_center -
-							      u_stencil_up,
-							      2) +
-						 pow(u_stencil_center - U_OUT,
-						     2) + pow(u_stencil_center -
-							      U_IN, 2));
+						 SQR(u_stencil_center - U_RIGHT)
+						 + SQR(u_stencil_center -
+						       U_LEFT) +
+						 SQR(u_stencil_center -
+						     u_stencil_down) +
+						 SQR(u_stencil_center -
+						     u_stencil_up) +
+						 SQR(u_stencil_center - U_OUT) +
+						 SQR(u_stencil_center - U_IN));
 					g[m][n][p] = 1.0 / denom;
 				}
 			}
@@ -99,8 +98,8 @@ void riciandenoise3d(double u[M][N][P], const double f[M][N][P], double sigma,
 		/* Update u by a sem-implict step */
 		converged = 1;
 
-        /* possible to pipeline? data dependence 
-         * due to u[m][n][p] being written back to */
+		/* possible to pipeline? data dependence
+		 * due to u[m][n][p] writeback */
 		for (p = 1; p < P - 1; p++) {
 			for (n = 1; n < N - 1; n++) {
 				for (m = 1; m < M - 1; m++) {
@@ -139,7 +138,7 @@ void riciandenoise3d(double u[M][N][P], const double f[M][N][P], double sigma,
 							   U_LEFT * G_LEFT +
 							   u_stencil_up *
 							   g_stencil_up +
-							   u_stencil_down * 
+							   u_stencil_down *
 							   g_stencil_down +
 							   U_IN * G_IN +
 							   U_OUT * G_OUT +
