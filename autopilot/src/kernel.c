@@ -59,17 +59,18 @@ inline double fast_fabs(double num)
 	return num;
 }
 
-inline void array_copy(const double src[M*N*P], double dst[M*N*P])
+inline void array_copy(const double src[M * N * P], double dst[M * N * P])
 {
 	int i;
-	for (i = 0; i < M*N*P; i++) {
+	for (i = 0; i < M * N * P; i++) {
 #pragma AP pipeline
 		dst[i] = src[i];
 	}
 }
 
-uint2_t riciandenoise3d(double u[M*N*P], const double f[M*N*P], double g[M*N*P], double sigma,
-		    double lambda, double tolerance)
+uint2_t riciandenoise3d(double u[M * N * P], double f[M * N * P],
+			double g[M * N * P], double sigma, double lambda,
+			double tolerance)
 {
 #pragma AP interface ap_bus port=u pipeline
 #pragma AP interface ap_bus port=f pipeline
@@ -97,8 +98,8 @@ uint2_t riciandenoise3d(double u[M*N*P], const double f[M*N*P], double g[M*N*P],
 		/* Approximate g = 1/|grad u| */
 		for (k = 1; k < P - 1; k++) {
 			for (j = 1; j < N - 1; j++) {
-				u_stencil_center = U(0,j,k);
-				u_stencil_down = U(1,j,k);
+				u_stencil_center = U(0, j, k);
+				u_stencil_down = U(1, j, k);
 				for (i = 1; i < M - 1; i++) {
 					u_stencil_up = u_stencil_center;
 					u_stencil_center = u_stencil_down;
@@ -125,14 +126,23 @@ uint2_t riciandenoise3d(double u[M*N*P], const double f[M*N*P], double g[M*N*P],
 		/* Update u by a sem-implict step */
 		converged = 1;
 
+		for (i = 0; i < M * N * P; i++) {
+#pragma AP pipeline
+			r = u[i] * f[i] / sigma2;
+			numer = r * (2.38944 + r * (0.950037 + r));
+			denom = 4.65314 + r * (2.57541 + r * (1.48937 + r));
+			r = numer / denom;
+			f[i] *= r;
+		}
+
 		/* possible to pipeline? data dependence
 		 * due to u[m][n][p] writeback */
 		for (k = 1; k < P - 1; k++) {
 			for (j = 1; j < N - 1; j++) {
-				u_stencil_center = U(0,j,k);
-				g_stencil_center = G(0,j,k);
-				u_stencil_down = U(1,j,k);
-				g_stencil_down = G(1,j,k);
+				u_stencil_center = U(0, j, k);
+				g_stencil_center = G(0, j, k);
+				u_stencil_down = U(1, j, k);
+				g_stencil_down = G(1, j, k);
 				for (i = 1; i < M - 1; i++) {
 					u_stencil_up = u_stencil_center;
 					g_stencil_up = g_stencil_center;
@@ -144,16 +154,6 @@ uint2_t riciandenoise3d(double u[M*N*P], const double f[M*N*P], double g[M*N*P],
 					/* Update u */
 					u_last = u_stencil_center;
 
-					/* Evaluate r = I1(u*f/sigma^2) / I0(u*f/sigma^2) with
-					 * a cubic rational approximation. */
-					r = u_last * F(i,j,k) / sigma2;
-					numer =
-					    r * (2.38944 + r * (0.950037 + r));
-					denom =
-					    4.65314 + r * (2.57541 +
-							   r * (1.48937 + r));
-					r = numer / denom;
-
 					numer =
 					    u_last + DT * (U_RIGHT * G_RIGHT +
 							   U_LEFT * G_LEFT +
@@ -163,8 +163,7 @@ uint2_t riciandenoise3d(double u[M*N*P], const double f[M*N*P], double g[M*N*P],
 							   g_stencil_down +
 							   U_IN * G_IN +
 							   U_OUT * G_OUT +
-							   gamma * F(i,j,k) *
-							   r);
+							   gamma * F(i, j, k));
 					denom =
 					    1.0 + DT * (G_RIGHT + G_LEFT +
 							g_stencil_up +
