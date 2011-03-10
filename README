@@ -6,3 +6,4 @@ M<=181
 N<=217 
 P<=181
 
+For accelerator, merge denoise and deblur to one accelerator
