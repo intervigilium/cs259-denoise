@@ -63,23 +63,27 @@ inline void array_copy(const double src[M][N][P], double dst[M][N][P])
 	for (i = 0; i < M; i++) {
 		for (j = 0; j < N; j++) {
 			for (k = 0; k < P; k++) {
+#pragma AP pipeline
 				dst[i][j][k] = src[i][j][k];
 			}
 		}
 	}
 }
 
-int riciandenoise3d(double u[M][N][P], const double f[M][N][P], double sigma,
+uint2_t riciandenoise3d(double u[M][N][P], const double f[M][N][P], double g[M][N][P], double sigma,
 		    double lambda, double tolerance)
 {
+#pragma AP interface ap_bus port=u pipeline
+#pragma AP interface ap_bus port=f pipeline
+#pragma AP interface ap_memory port=g pipeline
+
 	/* Array storing 1/|grad u| approximation */
-	double g[M][N][P];
 	double sigma2, gamma, r;
 	double numer, denom;
 	double u_last;
 	double u_stencil_up, u_stencil_center, u_stencil_down;
 	double g_stencil_up, g_stencil_center, g_stencil_down;
-	int converged;
+	uint2_t converged;
 	int i, m, n, p;
 
 	/* Initializations */
@@ -95,16 +99,11 @@ int riciandenoise3d(double u[M][N][P], const double f[M][N][P], double sigma,
 		/* Approximate g = 1/|grad u| */
 		for (p = 1; p < P - 1; p++) {
 			for (n = 1; n < N - 1; n++) {
+				u_stencil_center = u[0][n][p];
+				u_stencil_down = u[1][n][p];
 				for (m = 1; m < M - 1; m++) {
-					/* stencil m-1 = m; m = m+1 */
-					if (m == 1) {
-						u_stencil_up = U_UP;
-						u_stencil_center = U_CENTER;
-					} else {
-						u_stencil_up = u_stencil_center;
-						u_stencil_center =
-						    u_stencil_down;
-					}
+					u_stencil_up = u_stencil_center;
+					u_stencil_center = u_stencil_down;
 					u_stencil_down = U_DOWN;
 					denom =
 					    q3_sqrt(EPSILON +
@@ -120,7 +119,7 @@ int riciandenoise3d(double u[M][N][P], const double f[M][N][P], double sigma,
 							U_OUT) +
 						    SQR(u_stencil_center -
 							U_IN));
-					g[m][n][p] = 1.0 / denom;
+					G_CENTER = 1.0 / denom;
 				}
 			}
 		}
@@ -132,21 +131,15 @@ int riciandenoise3d(double u[M][N][P], const double f[M][N][P], double sigma,
 		 * due to u[m][n][p] writeback */
 		for (p = 1; p < P - 1; p++) {
 			for (n = 1; n < N - 1; n++) {
+				u_stencil_center = u[0][n][p];
+				g_stencil_center = g[0][n][p];
+				u_stencil_down = u[1][n][p];
+				g_stencil_down = g[1][n][p];
 				for (m = 1; m < M - 1; m++) {
-					/* stencil m-1 = m; m = m+1 */
-					if (m == 1) {
-						u_stencil_up = U_UP;
-						g_stencil_up = G_UP;
-						u_stencil_center = U_CENTER;
-						g_stencil_center = G_CENTER;
-					} else {
-						u_stencil_up = u_stencil_center;
-						g_stencil_up = g_stencil_center;
-						u_stencil_center =
-						    u_stencil_down;
-						g_stencil_center =
-						    g_stencil_down;
-					}
+					u_stencil_up = u_stencil_center;
+					g_stencil_up = g_stencil_center;
+					u_stencil_center = u_stencil_down;
+					g_stencil_center = g_stencil_down;
 					u_stencil_down = U_DOWN;
 					g_stencil_down = G_DOWN;
 
@@ -181,7 +174,7 @@ int riciandenoise3d(double u[M][N][P], const double f[M][N][P], double sigma,
 							G_OUT + gamma);
 					/* save modified u_stencil_center value */
 					u_stencil_center = numer / denom;
-					u[m][n][p] = u_stencil_center;
+					U_CENTER = u_stencil_center;
 
 					/* Test for convergence */
 					if (fast_fabs(u_last - u_stencil_center)
