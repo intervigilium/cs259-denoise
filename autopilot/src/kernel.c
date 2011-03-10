@@ -35,24 +35,24 @@
 
 inline double q3_sqrt(double num)
 {
-        uint64_t i;
-        double x, y;
-        const double f = 1.5;
+	uint64_t i;
+	double x, y;
+	const double f = 1.5;
 
-        x = num * 0.5;
-        y = num;
-        i = *(uint64_t *) &y;
-        i = 0x5fe6ec85e7de30da - (i >> i);
-        y = *(double *) &i;
-        y = y * (f - (x * y * y));
-        y = y * (f - (x * y * y));
+	x = num * 0.5;
+	y = num;
+	i = *(uint64_t *) & y;
+	i = 0x5fe6ec85e7de30da - (i >> i);
+	y = *(double *)&i;
+	y = y * (f - (x * y * y));
+	y = y * (f - (x * y * y));
 	return num * y;
 }
 
 inline double fast_fabs(double num)
 {
 	uint64_t *tmp;
-	tmp = (uint64_t *) &num;
+	tmp = (uint64_t *) & num;
 	*(tmp) &= 9223372036854775807llu;
 	return num;
 }
@@ -70,7 +70,7 @@ inline void array_copy(const double src[M][N][P], double dst[M][N][P])
 }
 
 int riciandenoise3d(double u[M][N][P], const double f[M][N][P], double sigma,
-		     double lambda, double tolerance)
+		    double lambda, double tolerance)
 {
 	/* Array storing 1/|grad u| approximation */
 	double g[M][N][P];
@@ -89,7 +89,7 @@ int riciandenoise3d(double u[M][N][P], const double f[M][N][P], double sigma,
 	/* Initialize u = f */
 	array_copy(f, u);
 
-    	/*** Main gradient descent loop ***/
+	/*** Main gradient descent loop ***/
 	/* fully pipeline/parallelize this */
 	for (i = 1; i <= MAX_ITERATIONS; i++) {
 		/* Approximate g = 1/|grad u| */
@@ -108,15 +108,18 @@ int riciandenoise3d(double u[M][N][P], const double f[M][N][P], double sigma,
 					u_stencil_down = U_DOWN;
 					denom =
 					    q3_sqrt(EPSILON +
-						 SQR(u_stencil_center - U_RIGHT)
-						 + SQR(u_stencil_center -
-						       U_LEFT) +
-						 SQR(u_stencil_center -
-						     u_stencil_down) +
-						 SQR(u_stencil_center -
-						     u_stencil_up) +
-						 SQR(u_stencil_center - U_OUT) +
-						 SQR(u_stencil_center - U_IN));
+						    SQR(u_stencil_center -
+							U_RIGHT)
+						    + SQR(u_stencil_center -
+							  U_LEFT) +
+						    SQR(u_stencil_center -
+							u_stencil_down) +
+						    SQR(u_stencil_center -
+							u_stencil_up) +
+						    SQR(u_stencil_center -
+							U_OUT) +
+						    SQR(u_stencil_center -
+							U_IN));
 					g[m][n][p] = 1.0 / denom;
 				}
 			}
@@ -181,8 +184,8 @@ int riciandenoise3d(double u[M][N][P], const double f[M][N][P], double sigma,
 					u[m][n][p] = u_stencil_center;
 
 					/* Test for convergence */
-					if (fast_fabs(u_last - u_stencil_center) >
-					    tolerance) {
+					if (fast_fabs(u_last - u_stencil_center)
+					    > tolerance) {
 						converged = 0;
 					}
 				}
