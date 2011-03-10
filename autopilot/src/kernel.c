@@ -1,8 +1,11 @@
 /*
  * Rician Denoise 3D kernel for FPGA implementation
  */
+#include <autopilot_tech.h>
 
-#include <math.h>
+#define uint2_t uint2
+#define uint64_t uint64
+#define uint32_t uint32
 
 #define DT 5.0
 #define EPSILON 1.0E-20
@@ -30,7 +33,31 @@
 #define G_IN g[m][n][p-1]
 #define G_OUT g[m][n][p+1]
 
-inline void array_copy(double src[M][N][P], double dst[M][N][P])
+inline double q3_sqrt(double num)
+{
+        uint64_t i;
+        double x, y;
+        const double f = 1.5;
+
+        x = num * 0.5;
+        y = num;
+        i = *(uint64_t *) &y;
+        i = 0x5fe6ec85e7de30da - (i >> i);
+        y = *(double *) &i;
+        y = y * (f - (x * y * y));
+        y = y * (f - (x * y * y));
+	return num * y;
+}
+
+inline double fast_fabs(double num)
+{
+	uint64_t *tmp;
+	tmp = (uint64_t *) &num;
+	*(tmp) &= 9223372036854775807llu;
+	return num;
+}
+
+inline void array_copy(const double src[M][N][P], double dst[M][N][P])
 {
 	int i, j, k;
 	for (i = 0; i < M; i++) {
@@ -42,7 +69,7 @@ inline void array_copy(double src[M][N][P], double dst[M][N][P])
 	}
 }
 
-void riciandenoise3d(double u[M][N][P], const double f[M][N][P], double sigma,
+int riciandenoise3d(double u[M][N][P], const double f[M][N][P], double sigma,
 		     double lambda, double tolerance)
 {
 	/* Array storing 1/|grad u| approximation */
@@ -62,7 +89,7 @@ void riciandenoise3d(double u[M][N][P], const double f[M][N][P], double sigma,
 	/* Initialize u = f */
 	array_copy(f, u);
 
-    /*** Main gradient descent loop ***/
+    	/*** Main gradient descent loop ***/
 	/* fully pipeline/parallelize this */
 	for (i = 1; i <= MAX_ITERATIONS; i++) {
 		/* Approximate g = 1/|grad u| */
@@ -80,7 +107,7 @@ void riciandenoise3d(double u[M][N][P], const double f[M][N][P], double sigma,
 					}
 					u_stencil_down = U_DOWN;
 					denom =
-					    sqrt(EPSILON +
+					    q3_sqrt(EPSILON +
 						 SQR(u_stencil_center - U_RIGHT)
 						 + SQR(u_stencil_center -
 						       U_LEFT) +
@@ -125,7 +152,7 @@ void riciandenoise3d(double u[M][N][P], const double f[M][N][P], double sigma,
 
 					/* Evaluate r = I1(u*f/sigma^2) / I0(u*f/sigma^2) with
 					 * a cubic rational approximation. */
-					r = ulast * f[m][n][p] / sigma2;
+					r = u_last * f[m][n][p] / sigma2;
 					numer =
 					    r * (2.38944 + r * (0.950037 + r));
 					denom =
@@ -154,7 +181,7 @@ void riciandenoise3d(double u[M][N][P], const double f[M][N][P], double sigma,
 					u[m][n][p] = u_stencil_center;
 
 					/* Test for convergence */
-					if (fabs(u_last - u_stencil_center) >
+					if (fast_fabs(u_last - u_stencil_center) >
 					    tolerance) {
 						converged = 0;
 					}
@@ -167,11 +194,5 @@ void riciandenoise3d(double u[M][N][P], const double f[M][N][P], double sigma,
 		}
 	}
 
-	if (converged) {
-		printf("Converged in %d iterations with tolerance %g.\n",
-		       i, tolerance);
-	} else {
-		printf("Maximum iterations exceeded (Max: %d)\n",
-		       MAX_ITERATIONS);
-	}
+	return converged;
 }
